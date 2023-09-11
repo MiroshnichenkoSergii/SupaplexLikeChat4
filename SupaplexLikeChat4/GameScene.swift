@@ -12,6 +12,7 @@ class GameScene: SKScene {
     
     var gridNode = SKNode()
     var grid: [[GameElement]] = []
+    var initialGrid: [[GameElement]] = []
     var playerPosition = (row: 4, col: 4)
 
     override func didMove(to view: SKView) {
@@ -21,6 +22,10 @@ class GameScene: SKScene {
         
         let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         view.addGestureRecognizer(tapRecognizer)
+        
+        let doubleTapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap))
+        doubleTapRecognizer.numberOfTapsRequired = 2
+        view.addGestureRecognizer(doubleTapRecognizer)
     }
     
     override func willMove(from view: SKView) {
@@ -55,6 +60,8 @@ class GameScene: SKScene {
             y: size.height/2 - CGFloat(numRows) * cellSize/2
         )
         addChild(gridNode)
+        
+        initialGrid = grid
     }
 
     func drawGrid() {
@@ -78,6 +85,12 @@ class GameScene: SKScene {
         }
     }
     
+    func restartLevel() {
+        grid = initialGrid
+        gridNode.removeAllChildren()
+        drawGrid()
+    }
+    
     func movePlayer(to newPosition: (row: Int, col: Int)) {
         // Check if the new position is within the grid bounds
         guard newPosition.row >= 0, newPosition.row < numRows,
@@ -98,6 +111,34 @@ class GameScene: SKScene {
         drawGrid()
     }
     
+    func applyGravity() {
+        var didAnyElementMove = false
+        
+        for rowIndex in (1..<numRows).reversed() { // start from the second bottommost row and move upwards
+            for colIndex in 0..<numColumns {
+                if grid[rowIndex][colIndex] == .rock && grid[rowIndex-1][colIndex] == .empty {
+                    
+                    // Move rock down
+                    grid[rowIndex][colIndex] = .empty
+                    grid[rowIndex-1][colIndex] = .rock
+                    didAnyElementMove = true
+                }
+            }
+        }
+        
+        if didAnyElementMove {
+            gridNode.removeAllChildren()
+            drawGrid()
+            
+            // Recursive call to keep applying gravity until all elements are settled
+            applyGravity()
+        }
+    }
+
+    @objc func handleDoubleTap(recognizer: UITapGestureRecognizer) {
+        restartLevel()
+    }
+    
     @objc func handleTap(recognizer: UITapGestureRecognizer) {
         let tapLocation = recognizer.location(in: self.inputView)
 
@@ -115,6 +156,9 @@ class GameScene: SKScene {
         } else if row < playerPosition.row {
             movePlayer(to: (playerPosition.row - 1, playerPosition.col))
         }
+        
+        // After moving player, apply gravity
+        applyGravity()
     }
 
 }
